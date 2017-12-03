@@ -192,7 +192,10 @@ def main(start, end=None, func=scan_all):
         loop = asyncio.ProactorEventLoop()
         asyncio.set_event_loop(loop)
     else:
+        if asyncio.get_event_loop().is_closed():
+            asyncio.set_event_loop(asyncio.new_event_loop())
         loop = asyncio.get_event_loop()
+
     loop.run_until_complete(func(start, end))
     loop.close()
 

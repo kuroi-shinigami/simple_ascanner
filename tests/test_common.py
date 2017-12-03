@@ -26,7 +26,8 @@ class TestFunctions(TestCase):
         except Exception:
             self.fail("Shouldn't throw any exception anytime")
 
-    def test_main_non_root_func_replace(self):
+    # noinspection PyBroadException
+    def test_main_non_root_default(self):
         try:
             main('127.0.0.1', func=scan_all)
         except Exception:
