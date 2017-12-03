@@ -1,7 +1,7 @@
 from unittest import TestCase
 import asyncio
 
-from simple_ascanner import ip2int, int2ip, iprange, main, ping_all
+from simple_ascanner import ip2int, int2ip, iprange, main, ping_all, is_ip
 
 
 class TestFunctions(TestCase):
@@ -16,6 +16,7 @@ class TestFunctions(TestCase):
     def test_iprange(self):
         self.assertEqual(len(list(iprange('127.0.0.1'))), 1)
         self.assertEqual(len(list(iprange('127.0.0.1', '127.0.0.2'))), 2)
+        self.assertEqual(len(list(iprange('256.0.0.1'))), 0)
 
     # noinspection PyBroadException
     def test_timer(self):

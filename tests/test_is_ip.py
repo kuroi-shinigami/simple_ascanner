@@ -15,3 +15,5 @@ class TestIsIp(TestCase):
         self.assertFalse(is_ip('-192.168.1.1'))
         self.assertFalse(is_ip('256.256.256.256'))
         self.assertFalse(is_ip('-192.256.256.256'))
+        self.assertFalse(is_ip('256.0.0.1.0'))
+        self.assertFalse(is_ip('127.0.0'))
