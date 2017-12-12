@@ -119,7 +119,7 @@ def is_ip(some_string):     # ToDo: implement different representations if ip ad
 
 
 # noinspection PyBroadException,PyTypeChecker
-async def ping_all(start, end=None):
+async def ping_all(start, end=None, count=1, verbose=False):
     """
     Just pings hosts by ping/fping tool in the host system
     :param start:   start ip
@@ -134,20 +134,23 @@ async def ping_all(start, end=None):
         cmd = [x for x in ip_generator] + ['-c', '1']  # 1 package
         # We do not store anything in stdout 'cause we don't need anything from it: we will see everything in arp.
         # The main thing we need is just to await when all hosts will be pinged
-        await ping.execute(cmd, raise_on_error=False)
+        res = await ping.execute(cmd, raise_on_error=False)
     except Exception:
         print("Couldn't find fping. Using ping instead")
         ping = AsyncExeWrapper('ping')
         # For now, just bulk suppression for errors: ping returns error code if host is unavailable
         # ToDo:
-        tasks = [asyncio.ensure_future(ping.execute([ip, '-c', '1'], raise_on_error=False)) for ip in ip_generator]
+        _cmd = ['-n', str(count)] if sys.platform == 'win32' else ['-c', str(count)]
+        tasks = [asyncio.ensure_future(ping.execute([ip] + _cmd, raise_on_error=False)) for ip in ip_generator]
         print('Tasks are ready... Awaiting...')
         # If you are interested if tasks are really executed, feel free to uncomment print in execute() method
-        await asyncio.wait(tasks)
+        res = await asyncio.wait(tasks)
         print('Tasks are ready... Finished!')
+    res = [x.result() for x in res[0]]
+    return res
 
 
-async def scan_all(start, end=None):                    # ToDo: implement list of desired ips as input or use smth like
+async def scan_all(start, end=None, verbose=False):     # ToDo: implement list of desired ips as input or use smth like
                                                         # [str(x) for x in ipaddress.ip_network("192.0.2.0/28").hosts()]
                                                         # from here: https://stackoverflow.com/questions/19157307
     """
@@ -186,8 +189,41 @@ async def scan_all(start, end=None):                    # ToDo: implement list o
         print(x)
 
 
+async def find_unused_ip(start, end=None, count=10, verbose=False):
+    res = await ping_all(start, end, count=count)
+    # ToDo: ZOMG TECH DIRTY HACK
+    _pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b' if sys.platform == 'win32' else r'\((?:\d{1,3}\.){3}\d{1,3}\)'
+    regexp = re.compile(_pattern)
+    _keys = dict()
+    for x in res:
+        ip = set(re.findall(regexp, str(x)))
+        if len(ip) > 1:
+            raise RuntimeError(f'Unexpected result when parsing output: {ip}')
+        ip = list(ip)[0].lstrip('(').rstrip(')')
+        if ip in _keys:
+            raise RuntimeError('Unexpected result when adding ip to result list. '
+                               'It seems that you have repeated results')
+        _keys.update({ip: x[1]})  # x[1] should be exit code  # ToDo: ZOMG TECH DEBT
+    used = [k for k, v in _keys.items() if not v]
+    if used:
+        if verbose:
+            print("The next ip addresses seem to be not in use:")
+            for x in used:
+                print(x)
+    else:
+        print("There is no used addresses")
+    unused = [k for k, v in _keys.items() if v]
+    if unused:
+        print("The next ip addresses seem to be not in use:")
+        for x in unused:
+            print(x)
+
+    else:
+        print("There is no free addresses. All ip adressess seem to be in use")
+
+
 @timer
-def main(start, end=None, func=scan_all):
+def main(start, end=None, func=scan_all, verbose=False):
     if sys.platform == 'win32':
         loop = asyncio.ProactorEventLoop()
         asyncio.set_event_loop(loop)
@@ -196,7 +232,7 @@ def main(start, end=None, func=scan_all):
             asyncio.set_event_loop(asyncio.new_event_loop())
         loop = asyncio.get_event_loop()
 
-    loop.run_until_complete(func(start, end))
+    loop.run_until_complete(func(start, end, verbose=verbose))
     loop.close()
 
 
