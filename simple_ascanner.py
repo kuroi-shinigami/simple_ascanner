@@ -190,15 +190,33 @@ async def scan_all(start, end=None, verbose=False):     # ToDo: implement list o
 
 
 async def find_unused_ip(start, end=None, count=10, verbose=False):
+    print('await ping')
     res = await ping_all(start, end, count=count)
+    print('awaited ping')
+
     # ToDo: ZOMG TECH DIRTY HACK
     _pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b' if sys.platform == 'win32' else r'\((?:\d{1,3}\.){3}\d{1,3}\)'
     regexp = re.compile(_pattern)
+
     _keys = dict()
     for x in res:
         ip = set(re.findall(regexp, str(x)))
         if len(ip) > 1:
-            raise RuntimeError(f'Unexpected result when parsing output: {ip}')
+            # ToDo: Shit & sticks.
+            """
+            E.g.
+            Pinging 10.0.1.23 with 32 bytes of data:
+            Reply from 192.168.1.123: Destination host unreachable
+            """
+            print("Warning! Several ip's in response: {}".format(ip))
+            for _ip in ip:
+                if _ip.startswith(".".join(start.split('.')[:-1])):
+                    break
+            else:
+                raise RuntimeError('Unexpected result when parsing output: {}'.format(ip))
+            ip = {_ip}
+        elif len(ip) == 0:
+            raise RuntimeError('Unexpected result when parsing output: {}'.format(ip))
         ip = list(ip)[0].lstrip('(').rstrip(')')
         if ip in _keys:
             raise RuntimeError('Unexpected result when adding ip to result list. '
